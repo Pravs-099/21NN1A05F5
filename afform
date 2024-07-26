@@ -1,0 +1,56 @@
+import someModule from 'some-module';
+
+const express = require('express');
+const { retrieveProducts, createUniqueId, paginateData } = require('./helpers');
+
+const app = express();
+const PORT = 3000;
+
+app.get('/categories/:category/products', async (req, res) => {
+    const { category } = req.params;
+    const n = parseInt(req.query.n) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const sortBy = req.query.sort_by || 'rating';
+    const sortOrder = req.query.sort_order || 'desc';
+
+    let allProducts = [];
+    for (const company of ['companyA', 'companyB', 'companyC', 'companyD', 'companyE']) {
+        const products = await retrieveProducts(company, category);
+        products.forEach(product => {
+            product.company = company;
+            product.unique_id = createUniqueId(product);
+        });
+        allProducts = allProducts.concat(products);
+    }
+
+    allProducts.sort((a, b) => {
+        const aValue = a[sortBy] || 0;
+        const bValue = b[sortBy] || 0;
+        return sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+    });
+
+    const paginatedProducts = paginateData(allProducts, page, n);
+
+    res.json(paginatedProducts);
+});
+
+app.get('/categories/:category/products/:productId', async (req, res) => {
+    const { category, productId } = req.params;
+
+    for (const company of ['companyA', 'companyB', 'companyC', 'companyD', 'companyE']) {
+        const products = await retrieveProducts(company, category);
+        for (const product of products) {
+            product.company = company;
+            product.unique_id = createUniqueId(product);
+            if (product.unique_id === productId) {
+                return res.json(product);
+            }
+        }
+    }
+
+    res.status(404).json({ error: 'Product not found' });
+});
+
+app.listen(PORT, () => {
+    console.log('Server is running at http://localhost:${PORT}');
+});
